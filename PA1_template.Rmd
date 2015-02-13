@@ -1,25 +1,177 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
-
+Reproducible Research: Peer Assessment 1
+==================================================
 
 ## Loading and preprocessing the data
+Reading the data.
 
+```{r readindata,echo=TRUE}
+if(!file.exists('activity.csv')){
+        unzip('activity.zip')
+}
+activityData <- read.csv('activity.csv')
+names(activityData)
+head(activityData)
+```
+
+Processing  the data to format the date column.
+```{r processdata,echo=TRUE}
+activityData$date <- as.Date(activityData$date, "%Y-%m-%d")
+```
 
 
 ## What is mean total number of steps taken per day?
+First calculate total number of steps taken per day
 
+```{r caltotalstepsperday,echo=TRUE}
+totalStepsPerDay <- aggregate(steps~date,data=activityData,sum,na.rm=TRUE)
+```
 
+Now the Histogram is :
+```{r histogramtotalsteps,echo=TRUE}
+hist(totalStepsPerDay$steps,main="Total Steps Per Day",xlab="Number of steps per Day",col="blue")
+```
+
+Calculating Mean:
+```{r meanofperdaysteps,echo=TRUE}
+stepsMean <- mean(totalStepsPerDay$steps)
+```
+Now the ***Mean*** is **`r format(stepsMean,digits=8)`**.
+
+Calculating Median: 
+```{r medianperdayssteps,echo=TRUE}
+stepsMedian <- median(totalStepsPerDay$steps)
+```
+***Median*** is **`r format(stepsMedian,digits=8)`**.
 
 ## What is the average daily activity pattern?
+Make a time series plot (i.e type="l") of the 5 minute interval (x-axis) and the average number of steps taken, average across all days (y-axis)
 
+```{r timerseries,echo=TRUE}
+timeSeriesData <- aggregate(steps~interval,data=activityData,mean,na.rm=TRUE)
 
+```
+The plot for 5 minute interval and average number of steps taken are:
+
+```{r timeseriesplot,echo=TRUE}
+plot(timeSeriesData$interval,timeSeriesData$steps,type="l",xlab="5 minute Interval",ylab="Average for Days",col="blue",main="Average Number of Steps Taken")
+```
+
+Which 5-minute interval, on average across all days in the dataset, contains the maximum number of steps
+
+```{r maximumnumsteps,echo=TRUE}
+max5MinInterval <-  timeSeriesData[which.max(timeSeriesData$steps),1]
+```
+
+The **`r max5MinInterval`th** interval contain maximum number of steps.
 
 ## Imputing missing values
+####1.Calculate and report the total number of NA in the dataset.
+
+We will use **is.na** to check the NA values in the dataset and than we will use **Sum** to get the total number of NA's in the dataset.
+
+```{r missingvalsum,echo=TRUE}
+missingValSum <- sum(is.na(activityData))
+```
+
+Total number of ***missing values*** in the data set are **`r missingValSum`**.
 
 
+####2. Strategy for filling NA with Values in the DataSet
 
+Replace NA with mean in 5 min interval.
+
+```{r fillmissingval,echo=TRUE}
+stepsAverage <- aggregate(steps~interval,data=activityData,mean)
+fillMissingVals <- numeric()
+for(i in 1:nrow(activityData)){
+        data <- activityData[i,]
+        if(is.na(data$steps)){
+                steps <- subset(stepsAverage,interval==data$interval)$steps
+        }
+        else{
+                steps <- data$steps
+        }
+        fillMissingVals <- c(fillMissingVals,steps)
+}
+```
+
+####3. Create new Dataset with filled missing values.
+
+We will use **fillMissingVals** to create new dataset equal to original dataset with missing values filled.
+
+```{r newdata,echo=TRUE}
+newActivityData <- activityData
+newActivityData$steps <- fillMissingVals
+head(newActivityData)
+```
+Now just to confirm whether our new data set contain NA's or not.
+
+```{r checkmissingvals,echo=TRUE}
+missVals <- sum(is.na(newActivityData))
+missVals
+```
+So Zero output shows that in our new data set there are ***NO NA's***.
+
+####4. Histogram of total number of steps taken each day from our new dataset.
+
+```{r caltotalstepsperdaynewdata,echo=TRUE}
+totalStepsPerDay2 <- aggregate(steps~date,data=newActivityData,sum,na.rm=TRUE)
+```
+
+Now the Histogram is :
+```{r histogramtotalstepsnewdata,echo=TRUE}
+hist(totalStepsPerDay2$steps,main="Total Steps Per Day",xlab="Number of steps per Day",col="green")
+```
+
+Calculating Mean:
+```{r meanofperdaystepsnewdata,echo=TRUE}
+stepsMean2 <- mean(totalStepsPerDay2$steps)
+```
+
+Calculating Median: 
+```{r medianperdaysstepsnewdata,echo=TRUE}
+stepsMedian2 <- median(totalStepsPerDay2$steps)
+```
+
+
+#### Do the  Mean and Median of new dataset differ from Mean and Median of original dataset.
+
+- **Original dataset results**.    
+        1. Mean is : ***`r format(stepsMean,digits=8)`***.  
+        2. Median is : ***`r format(stepsMedian,digits=8)`.***
+        
+- **New dataset results (after filling NA's)**.  
+        1. Mean is : ***`r format(stepsMean2,digits=8)`***.  
+        2. Median is : ***`r format(stepsMedian2,digits=8)`***.
+        
+So we can see that after filling missing values the data mean is same and there is very minor difference in median.
+        
 ## Are there differences in activity patterns between weekdays and weekends?
+
+For this part we will use ***weekdays()*** function to check if the day is weekday or weekend. And we will create a new factor variable in the dataset with two levels weekday and weekend.
+
+
+```{r weekweekendday,echo=TRUE}
+day <- weekdays(activityData$date)
+daylevel <- vector()
+for(i in 1:nrow(activityData)){
+        if(day[i] == "Saturday" || day[i] == "Sunday"){
+                daylevel[i] = "Weekend"
+        }else{
+                daylevel[i] = "Weekday"
+        }
+}
+activityData$daylevel <- daylevel
+activityData$daylevel <- factor(activityData$daylevel)
+head(activityData)
+
+stepsEachDay <- aggregate(steps~interval+daylevel,data=activityData,mean)
+head(stepsEachDay)
+```
+
+Make a panel plot containing a time series plot (i.e. type = ???l???) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). The plot should look something like the following, which was creating using simulated data:
+
+```{r xyplotforwwdays,echo=TRUE}
+library(lattice)
+xyplot(steps~interval | daylevel,stepsEachDay,type="l",layout =c (1,2),xlab="5 minute interval",ylab="Number of Steps")
+```
